@@ -1,5 +1,5 @@
 import { readFile } from 'fs/promises';
-import path from 'path';
+import * as path from 'path';
 
 export async function replaceCodeDirectives(
   content: string,
