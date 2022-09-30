@@ -1,9 +1,7 @@
 import express = require('express');
+import { convertAll } from './convert';
+
 const app = express();
-const port = 3000;
-
-app.use(express.static('blog_src'));
-
-app.listen(port, () => {
-  console.log(`Listening on port ${port}`);
-});
+convertAll();
+app.use(express.static('converted'));
+app.listen(3000);
