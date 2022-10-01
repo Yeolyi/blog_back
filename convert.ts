@@ -8,6 +8,8 @@ const currentDirectory = process.cwd();
 const markdownDirectory = path.join(currentDirectory, '../', 'blog_src');
 const indexFileName = 'index.md';
 
+convertAll();
+
 export async function convertAll() {
   const postPaths = await getPostPaths();
 
