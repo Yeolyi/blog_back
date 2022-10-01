@@ -5,7 +5,7 @@ import { PostData, MarkdownMetaData } from './types';
 import { replaceCodeDirectives } from './codeReplacer';
 
 const currentDirectory = process.cwd();
-const markdownDirectory = path.join(currentDirectory, 'blog_src');
+const markdownDirectory = path.join(currentDirectory, '../', 'blog_src');
 const indexFileName = 'index.md';
 
 export async function convertAll() {
