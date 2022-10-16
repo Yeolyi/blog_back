@@ -1,4 +1,4 @@
-import { readFile, mkdir, writeFile, readdir, lstat } from 'fs/promises';
+import { readFile, mkdir, writeFile, readdir, lstat, rm } from 'fs/promises';
 import * as path from 'path';
 import matter = require('gray-matter');
 import { PostData, MarkdownMetaData } from './types';
@@ -11,6 +11,11 @@ const indexFileName = 'index.md';
 convertAll();
 
 export async function convertAll() {
+  try {
+    await rm('converted', { recursive: true });
+  } catch {
+    //
+  }
   const postPaths = await getPostPaths();
 
   for (const postPath of postPaths) {
