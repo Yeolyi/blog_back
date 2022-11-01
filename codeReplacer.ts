@@ -11,7 +11,8 @@ export async function replaceCodeDirectives(
       const code = await readFile(codeFullPath, {
         encoding: 'utf8',
       });
-      return `\`\`\`${x.split('.')[1]}\n${code.trim()}\n\`\`\``;
+      const splited = x.split('.');
+      return `\`\`\`${splited[splited.length - 1]}\n${code.trim()}\n\`\`\``;
     } catch {
       console.error(`코드 대체 불가: ${codeFullPath}`);
       return '';
