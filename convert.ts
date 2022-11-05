@@ -1,6 +1,6 @@
 import { readFile, mkdir, writeFile, readdir, lstat, rm } from 'fs/promises';
 import * as path from 'path';
-import matter = require('gray-matter');
+import matter from 'gray-matter';
 import { PostData, MarkdownMetaData } from './types';
 import { replaceCodeDirectives } from './codeReplacer';
 
