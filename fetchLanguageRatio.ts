@@ -1,4 +1,5 @@
 import { Octokit } from 'octokit';
+import languageColors from './languageColors';
 
 const minimumVisibleLanguagePercentage = 0.01;
 
@@ -13,14 +14,27 @@ export interface Language {
   name: string;
   bytes: number;
   percentage: number;
+  color: string;
 }
 
-const fetchLanguageRatio = async () => {
+const fetchLanguageRatio = async (): Promise<Language[]> => {
   const languages = await fetchLanguageObject();
   const parsed = parseLanguageObject(languages);
   const ratioCalculated = calculateByteRatio(parsed);
-  return ratioCalculated;
+  const colorAdded = ratioCalculated.map((x) => ({
+    ...x,
+    color: isValidLanguageName(x.name)
+      ? languageColors[x.name].color ?? '#333'
+      : '#333',
+  }));
+  return colorAdded;
 };
+
+function isValidLanguageName(
+  name: string
+): name is keyof typeof languageColors {
+  return name in languageColors;
+}
 
 const fetchLanguageObject = async (): Promise<GitHubLanguageResponse> => {
   const octokit = new Octokit();
@@ -43,7 +57,9 @@ const parseLanguageObject = (
   return languages;
 };
 
-const calculateByteRatio = (languages: ParsedLanguage[]): Language[] => {
+const calculateByteRatio = (
+  languages: ParsedLanguage[]
+): Omit<Language, 'color'>[] => {
   const largestBytes = languages.reduce((a, b) => Math.max(a, b.bytes), 0);
   const percentageAdded = languages
     .map((x) => {
