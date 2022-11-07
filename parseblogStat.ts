@@ -26,9 +26,15 @@ const parseBlogStat = async () => {
       let added = 0;
       let deleted = 0;
       lines.forEach((line) => {
-        const regex = /(\d+)\s+(\d+)/;
+        const regex = /(\d+)\s+(\d+)\s+(.+)/;
         const match = line.match(regex);
         if (match === null) {
+          return;
+        }
+        if (
+          match[3].endsWith('package-lock.json') ||
+          match[3].endsWith('package.json')
+        ) {
           return;
         }
         added += +match[1];
