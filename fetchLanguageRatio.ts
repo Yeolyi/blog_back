@@ -23,18 +23,25 @@ const fetchLanguageRatio = async (): Promise<Language[]> => {
   const ratioCalculated = calculateByteRatio(parsed);
   const colorAdded = ratioCalculated.map((x) => ({
     ...x,
-    color: isValidLanguageName(x.name)
-      ? languageColors[x.name].color ?? '#333'
-      : '#333',
+    color: getLanguageColor(x.name),
   }));
   return colorAdded;
 };
 
-function isValidLanguageName(
+export const getLanguageColor = (name: string) => {
+  if (isValidLanguageName(name)) {
+    return languageColors[name].color ?? '#333';
+  } else {
+    console.error('유효한 언어 이름 아님: ', name);
+    return '#333';
+  }
+};
+
+const isValidLanguageName = (
   name: string
-): name is keyof typeof languageColors {
+): name is keyof typeof languageColors => {
   return name in languageColors;
-}
+};
 
 const fetchLanguageObject = async (): Promise<GitHubLanguageResponse> => {
   const octokit = new Octokit();
