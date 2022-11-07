@@ -3,9 +3,18 @@ import * as path from 'path';
 import matter from 'gray-matter';
 import { PostData, MarkdownMetaData } from './types';
 import { replaceCodeDirectives } from './codeReplacer';
+import * as dotenv from 'dotenv';
+
+dotenv.config();
 
 const currentDirectory = process.cwd();
-const markdownDirectory = path.join(currentDirectory, '../', 'blog_src');
+
+const blogSrcDir = process.env.BLOG_SRC_DIR;
+if (blogSrcDir === undefined) {
+  throw new Error('BLOG_SRC_DIR 환경 변수 없음');
+}
+
+const markdownDirectory = path.join(currentDirectory, blogSrcDir);
 const indexFileName = 'index.md';
 
 export async function convertAll() {
