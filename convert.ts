@@ -4,6 +4,7 @@ import matter from 'gray-matter';
 import { PostData, MarkdownMetaData } from './types';
 import { replaceCodeDirectives } from './codeReplacer';
 import * as dotenv from 'dotenv';
+import { existsSync } from 'fs';
 
 dotenv.config();
 
@@ -18,7 +19,9 @@ const markdownDirectory = path.join(currentDirectory, blogSrcDir);
 const indexFileName = 'index.md';
 
 export async function convertAll() {
-  await rm('converted', { recursive: true });
+  if (existsSync('converted')) {
+    await rm('converted', { recursive: true });
+  }
   const postPaths = await getPostPaths();
 
   for (const postPath of postPaths) {

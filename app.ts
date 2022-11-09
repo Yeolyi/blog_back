@@ -3,11 +3,14 @@ import cors = require('cors');
 import * as dotenv from 'dotenv';
 import fetchLanguageRatio, { Language } from './fetchLanguageRatio';
 import parseBlogStat from './parseblogStat';
+import { convertAll } from './convert';
 
 dotenv.config();
 
 const app = express();
 app.use(cors());
+
+convertAll();
 
 let languageRatioCache: Language[] | null = null;
 app.get('/languageRatio', async (req, res) => {
