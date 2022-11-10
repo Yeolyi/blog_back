@@ -1,12 +1,12 @@
-import _, { Collection } from 'lodash';
-import extensionMap from './extensionMap';
-import { getLanguageColor } from './fetchLanguageRatio';
+import _ from 'lodash';
+import { extractFileExtension, extToLanguageAndColor } from './extensionMap';
 import { getAllCommits, ChangedFile, Commit } from './git';
+import { isAllowedFilePath } from './lib/isAllowedFilePath';
 import { notEmpty } from './lib/util';
 
 interface Addon {
   added: number;
-  colors: Collection<Color>;
+  colors: Color[];
 }
 
 interface Color {
@@ -27,18 +27,14 @@ const parseBlogStat = async (blogSrcDir: string) => {
       ...commit,
       ...calculateAddons(commit.files),
     }))
-    .filter((commit) => commit.colors.size() > 0)
+    .filter((commit) => commit.colors.length > 0)
     .map((commit) => _.omit(commit, 'files'))
     .slice(0, 10);
 };
 
 const isAllowedFile = (changedFile: ChangedFile): boolean => {
   const { addedLinesCnt: addedLineCnt, filePath } = changedFile;
-  return (
-    !filePath.endsWith('package-lock.json') &&
-    !filePath.endsWith('package.json') &&
-    addedLineCnt !== 0
-  );
+  return isAllowedFilePath(filePath) && addedLineCnt !== 0;
 };
 
 const isAllowedCommit = (commit: Commit) => commit.files.length > 0;
@@ -69,27 +65,8 @@ const calculateColorRatio = (changedFile: ChangedFile[]) => {
     })
     .filter(notEmpty)
     .sortBy((x) => x.colorAmount)
-    .reverse();
-};
-
-const extractFileExtension = (path: string) => {
-  const splited = path.split('.');
-  const ext = splited[splited.length - 1];
-  return ext;
-};
-
-const extToLanguageAndColor = (
-  ext: string
-): { language: string; color: string } | null => {
-  const language = extensionMap[ext];
-  if (typeof language !== 'string') {
-    return null;
-  }
-  const color = getLanguageColor(language);
-  if (color === null) {
-    return null;
-  }
-  return { language, color };
+    .reverse()
+    .value();
 };
 
 export default parseBlogStat;

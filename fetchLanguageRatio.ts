@@ -1,91 +1,61 @@
-import { Octokit } from 'octokit';
-import languageColors from './languageColors';
+import _ from 'lodash';
+import { extractFileExtension, extToLanguageAndColor } from './extensionMap';
+import { getAllCommits } from './git';
+import { isAllowedFilePath } from './lib/isAllowedFilePath';
 import { notEmpty } from './lib/util';
-
-const minimumVisibleLanguagePercentage = 0.01;
-
-type GitHubLanguageResponse = { [languageName: string]: number };
-
-type ParsedLanguage = {
-  name: string;
-  bytes: number;
-};
 
 export interface Language {
   name: string;
-  bytes: number;
+  language: string;
+  lines: number;
   percentage: number;
   color: string;
 }
 
 const fetchLanguageRatio = async (): Promise<Language[]> => {
-  const languages = await fetchLanguageObject();
-  const parsed = parseLanguageObject(languages);
-  const ratioCalculated = calculateByteRatio(parsed);
-  const colorAdded = ratioCalculated
-    .map((x) => {
-      const color = getLanguageColor(x.name);
-      if (color === null) {
+  const commits = await getAllCommits('../blog_src');
+  const langaugeAndColor = _(commits)
+    .flatMap((x) => x.files)
+    .filter((x) => isAllowedFilePath(x.filePath))
+    .groupBy((file) => extractFileExtension(file.filePath))
+    .mapValues((files, ext) => {
+      const languageAndColor = extToLanguageAndColor(ext);
+      if (languageAndColor === null) {
         return null;
-      } else {
-        return { ...x, color };
       }
-    })
-    .filter(notEmpty);
-  return colorAdded;
-};
-
-export const getLanguageColor = (name: string) => {
-  if (isValidLanguageName(name)) {
-    return languageColors[name].color;
-  } else {
-    return null;
-  }
-};
-
-const isValidLanguageName = (
-  name: string
-): name is keyof typeof languageColors => {
-  return name in languageColors;
-};
-
-const fetchLanguageObject = async (): Promise<GitHubLanguageResponse> => {
-  const octokit = new Octokit();
-  const response = await octokit.request(
-    'GET /repos/{owner}/{repo}/languages',
-    {
-      owner: 'yeolyi',
-      repo: 'blog_src',
-    }
-  );
-  return response.data;
-};
-
-const parseLanguageObject = (
-  object: GitHubLanguageResponse
-): ParsedLanguage[] => {
-  const languages = Object.entries(object)
-    .sort((a, b) => b[1] - a[1])
-    .map((x) => ({ name: x[0], bytes: x[1] }));
-  return languages;
-};
-
-const calculateByteRatio = (
-  languages: ParsedLanguage[]
-): Omit<Language, 'color'>[] => {
-  const largestBytes = languages.reduce((a, b) => Math.max(a, b.bytes), 0);
-  const percentageAdded = languages
-    .map((x) => {
-      const percentage = x.bytes / largestBytes;
-      const normalizedPercentage = normalizeByLogScale(percentage);
+      const lines = files.reduce(
+        (prev, cur) => prev + cur.addedLinesCnt + cur.deletedLinesCnt,
+        0
+      );
       return {
-        ...x,
-        percentage: normalizedPercentage,
+        ...languageAndColor,
+        lines,
       };
     })
-    .filter((x) => minimumVisibleLanguagePercentage < x.percentage);
-  return percentageAdded;
+    .filter(notEmpty)
+    .filter((x) => isAllowedLanguage(x.language));
+
+  const maxLines = Math.max(...langaugeAndColor.map((x) => x.lines).value());
+
+  return langaugeAndColor
+    .map((x) => ({
+      ...x,
+      percentage: normalizeByLogScale(x.lines / maxLines),
+      // 프론트 호환 위함
+      name: x.language,
+    }))
+    .filter(minimumProportion)
+    .omit('lines')
+    .sortBy((x) => x.percentage)
+    .reverse()
+    .value();
 };
+
+const isAllowedLanguage = (languageName: string) => {
+  return languageName !== 'Markdown';
+};
+
+const minimumProportion = (language: Language) => language.percentage > 0.01;
 
 const normalizeByLogScale = (x: number) => {
   if (0 <= x && x <= 1) {
