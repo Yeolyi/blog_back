@@ -92,7 +92,7 @@ const calculateColorRatio = (changedFile: ChangedFile[]) => {
       }
       return {
         ...languageAndColor,
-        colorAmount: addedLineOfFile / addedLinesInCommit,
+        colorAmount: (addedLineOfFile / addedLinesInCommit) * 100,
       };
     })
     .filter(notEmpty)
