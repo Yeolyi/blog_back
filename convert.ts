@@ -1,4 +1,12 @@
-import { readFile, mkdir, writeFile, readdir, lstat, rm } from 'fs/promises';
+import {
+  readFile,
+  mkdir,
+  writeFile,
+  readdir,
+  lstat,
+  rm,
+  cp,
+} from 'fs/promises';
 import * as path from 'path';
 import matter from 'gray-matter';
 import { PostData, MarkdownMetaData } from './types';
@@ -10,9 +18,7 @@ const currentDirectory = process.cwd();
 
 export async function convertAll() {
   await removeConvertedFolderIfExists();
-
   const postPaths = await getPostPaths();
-
   for (const postPath of postPaths) {
     const postData = await makePostData(postPath);
     storePostDataToFile(postData);
@@ -27,6 +33,14 @@ const removeConvertedFolderIfExists = async () => {
 
 async function getPostPaths(startPath = '/'): Promise<string[]> {
   const directories = await listAllDirectoryNamesInPath(startPath);
+  if (!startPath.includes('node_modules') && directories.includes('build')) {
+    console.log(startPath);
+
+    const buildFolderPath = path.join(startPath, 'build');
+    const from = addMarkdownDirectoryPrefix(buildFolderPath);
+    const to = path.join(currentDirectory, 'converted', buildFolderPath);
+    cp(from, to, { recursive: true });
+  }
   const paths = (
     await mapAsync(directories, async (directoryName) => {
       const directoryPath = path.join(startPath, directoryName);
