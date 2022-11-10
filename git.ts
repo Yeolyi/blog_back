@@ -1,7 +1,19 @@
 import simpleGit, { SimpleGitOptions } from 'simple-git';
-import { mapAdjacentElement } from './lib/util';
+import { mapAdjacentElement, notEmpty } from './lib/util';
 
-export const allDiffBetweenCommits = async (dir: string) => {
+export interface Commit {
+  message: string;
+  date: string;
+  files: ChangedFile[];
+}
+
+export interface ChangedFile {
+  addedLinesCnt: number;
+  deletedLinesCnt: number;
+  filePath: string;
+}
+
+export const getAllCommits = async (dir: string): Promise<Commit[]> => {
   const options: Partial<SimpleGitOptions> = {
     baseDir: dir,
   };
@@ -16,9 +28,35 @@ export const allDiffBetweenCommits = async (dir: string) => {
         prevCommit.hash,
         baseCommit.hash,
       ]);
-      return { baseCommit, diff };
+      const diffLines = splitLines(diff);
+      const files = diffLines.map(parseDiffString).filter(notEmpty);
+      return {
+        message: baseCommit.message,
+        date: baseCommit.date,
+        files,
+      };
     }
   );
-
   return await Promise.all(diffPromises);
+};
+
+const splitLines = (text: string) => text.split('\n');
+
+const parseDiffString = (text: string): ChangedFile | null => {
+  const regex = /(\d+)\s+(\d+)\s+(.+)/;
+  const match = text.match(regex);
+  if (match === null) {
+    return null;
+  }
+  const [, addedLineCntStr, deletedLineCntStr, filePath] = match;
+  const addedLinesCnt = +addedLineCntStr;
+  const deletedLinesCnt = +deletedLineCntStr;
+  if (!Number.isInteger(addedLinesCnt) || !Number.isInteger(deletedLinesCnt)) {
+    return null;
+  }
+  return {
+    addedLinesCnt,
+    deletedLinesCnt,
+    filePath,
+  };
 };

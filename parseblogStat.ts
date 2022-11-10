@@ -1,70 +1,35 @@
-import _ from 'lodash';
+import _, { Collection } from 'lodash';
 import extensionMap from './extensionMap';
 import { getLanguageColor } from './fetchLanguageRatio';
-import { allDiffBetweenCommits } from './git';
+import { getAllCommits, ChangedFile, Commit } from './git';
 import { notEmpty } from './lib/util';
 
-interface ChangedFile {
-  addedLinesCnt: number;
-  deletedLinesCnt: number;
-  filePath: string;
+interface Addon {
+  added: number;
+  colors: Collection<Color>;
+}
+
+interface Color {
+  language: string;
+  color: string;
+  colorAmount: number;
 }
 
 const parseBlogStat = async (blogSrcDir: string) => {
-  const diffs = await allDiffBetweenCommits(blogSrcDir);
-  const promise = diffs.map(async ({ baseCommit, diff }) => {
-    const result = await parseDiff(diff);
-    if (result === null) {
-      return null;
-    }
-    return {
-      message: baseCommit.message,
-      date: baseCommit.date,
-      ...result,
-    };
-  });
-
-  return (await Promise.all(promise)).filter(notEmpty).slice(0, 10);
-};
-
-const parseDiff = async (diff: string) => {
-  const changedFiles = mapLines(diff, parseDiffString)
-    .filter(notEmpty)
-    .filter(isAllowedFile);
-  if (changedFiles.length === 0) {
-    return null;
-  }
-  const addedLinesInCommit = changedFiles.reduce(
-    (prev, cur) => prev + cur.addedLinesCnt,
-    0
-  );
-  const colors = calculateColorRatio(changedFiles);
-  return {
-    added: addedLinesInCommit,
-    colors,
-  };
-};
-
-const mapLines = <T>(text: string, f: (line: string) => T) =>
-  text.split('\n').map(f);
-
-const parseDiffString = (text: string): ChangedFile | null => {
-  const regex = /(\d+)\s+(\d+)\s+(.+)/;
-  const match = text.match(regex);
-  if (match === null) {
-    return null;
-  }
-  const addedLinesCnt = +match[1];
-  const deletedLinesCnt = +match[2];
-  const filePath = match[3];
-  if (!Number.isInteger(addedLinesCnt) || !Number.isInteger(deletedLinesCnt)) {
-    return null;
-  }
-  return {
-    addedLinesCnt,
-    deletedLinesCnt,
-    filePath,
-  };
+  const commits = await getAllCommits(blogSrcDir);
+  return _(commits)
+    .map((commit) => ({
+      ...commit,
+      files: commit.files.filter(isAllowedFile),
+    }))
+    .filter(isAllowedCommit)
+    .map((commit) => ({
+      ...commit,
+      ...calculateAddons(commit.files),
+    }))
+    .filter((commit) => commit.colors.size() > 0)
+    .map((commit) => _.omit(commit, 'files'))
+    .slice(0, 10);
 };
 
 const isAllowedFile = (changedFile: ChangedFile): boolean => {
@@ -76,11 +41,18 @@ const isAllowedFile = (changedFile: ChangedFile): boolean => {
   );
 };
 
+const isAllowedCommit = (commit: Commit) => commit.files.length > 0;
+
+const calculateAddons = (files: ChangedFile[]): Addon => {
+  const colors = calculateColorRatio(files);
+  return { added: sumLineAdded(files), colors };
+};
+
+const sumLineAdded = (files: ChangedFile[]) =>
+  files.reduce((total, cur) => total + cur.addedLinesCnt, 0);
+
 const calculateColorRatio = (changedFile: ChangedFile[]) => {
-  const addedLinesInCommit = changedFile.reduce(
-    (prev, cur) => prev + cur.addedLinesCnt,
-    0
-  );
+  const addedLinesInCommit = sumLineAdded(changedFile);
   return _(changedFile)
     .groupBy((x) => extractFileExtension(x.filePath))
     .mapValues((x) => x.reduce((a, b) => a + b.addedLinesCnt, 0))
@@ -106,12 +78,17 @@ const extractFileExtension = (path: string) => {
   return ext;
 };
 
-const extToLanguageAndColor = (ext: string) => {
+const extToLanguageAndColor = (
+  ext: string
+): { language: string; color: string } | null => {
   const language = extensionMap[ext];
   if (typeof language !== 'string') {
     return null;
   }
   const color = getLanguageColor(language);
+  if (color === null) {
+    return null;
+  }
   return { language, color };
 };
 
