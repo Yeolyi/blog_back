@@ -3,94 +3,97 @@ import * as path from 'path';
 import matter from 'gray-matter';
 import { PostData, MarkdownMetaData } from './types';
 import { replaceCodeDirectives } from './codeReplacer';
-import * as dotenv from 'dotenv';
 import { existsSync } from 'fs';
-
-dotenv.config();
+import { filterAsync, mapAsync } from './lib/util';
 
 const currentDirectory = process.cwd();
 
-const blogSrcDir = process.env.BLOG_SRC_DIR;
-if (blogSrcDir === undefined) {
-  throw new Error('BLOG_SRC_DIR 환경 변수 없음');
-}
-
-const markdownDirectory = path.join(currentDirectory, blogSrcDir);
-const indexFileName = 'index.md';
-
 export async function convertAll() {
-  if (existsSync('converted')) {
-    await rm('converted', { recursive: true });
-  }
+  await removeConvertedFolderIfExists();
+
   const postPaths = await getPostPaths();
 
   for (const postPath of postPaths) {
-    const postData = await getPostData(postPath);
-    const json = JSON.stringify(postData);
-    const jsonDir = path.join(currentDirectory, 'converted', ...postPath);
-    const jsonFilePath = path.join(jsonDir, 'index.md');
-    await mkdir(jsonDir, { recursive: true });
-
-    writeFile(jsonFilePath, json);
+    const postData = await makePostData(postPath);
+    storePostDataToFile(postData);
   }
 }
 
-export async function getPostData(pathArr: string[]): Promise<PostData> {
-  const postPath = path.join(markdownDirectory, ...pathArr);
-  const indexFilePath = path.join(postPath, indexFileName);
+const removeConvertedFolderIfExists = async () => {
+  if (existsSync('converted')) {
+    await rm('converted', { recursive: true });
+  }
+};
+
+async function getPostPaths(startPath = '/'): Promise<string[]> {
+  const directories = await listAllDirectoryNamesInPath(startPath);
+  const paths = (
+    await mapAsync(directories, async (directoryName) => {
+      const directoryPath = path.join(startPath, directoryName);
+      return await getPostPaths(directoryPath);
+    })
+  ).flat();
+
+  if (await isIndexFileExist(startPath)) {
+    paths.push(startPath);
+  }
+
+  return paths;
+}
+
+const listAllDirectoryNamesInPath = async (
+  postPath: string
+): Promise<string[]> => {
+  const targetPath = addMarkdownDirectoryPrefix(postPath);
+  const pathContent = await readdir(targetPath);
+  return await filterAsync(pathContent, async (contentName) => {
+    const contentPath = path.join(targetPath, contentName);
+    const stat = await lstat(contentPath);
+    return stat.isDirectory();
+  });
+};
+
+const isIndexFileExist = async (postPath: string) => {
+  const targetPath = addMarkdownDirectoryPrefix(postPath);
+  const pathContent = await readdir(targetPath);
+  return pathContent.includes('index.md');
+};
+
+const storePostDataToFile = async (postData: PostData) => {
+  const json = JSON.stringify(postData);
+
+  const dir = path.join(currentDirectory, 'converted', postData.path);
+  await mkdir(dir, { recursive: true });
+
+  const jsonFilePath = path.join(dir, 'index.json');
+  writeFile(jsonFilePath, json);
+};
+
+async function makePostData(postPath: string): Promise<PostData> {
+  const targetPath = addMarkdownDirectoryPrefix(postPath);
+  const indexFilePath = path.join(targetPath, 'index.md');
   const fileContents = await readFile(indexFilePath, { encoding: 'utf8' });
 
   const matterResult = matter(fileContents);
   const matterData = matterResult.data as MarkdownMetaData;
 
-  const content = await replaceCodeDirectives(matterResult.content, postPath);
+  const content = await replaceCodeDirectives(matterResult.content, targetPath);
 
   return {
-    pathArr,
+    pathArr: [],
     metaData: matterData,
     content,
+    path: postPath,
   };
 }
 
-export async function getPostPaths(
-  pathArr: string[] = []
-): Promise<string[][]> {
-  const currentPath = path.join(markdownDirectory, ...pathArr);
-  const pathContent = await readdir(currentPath);
-  const currentPathContentNames = pathContent.filter((x) => x !== 'legacy');
+const addMarkdownDirectoryPrefix = (postPath: string) =>
+  path.join(getMarkdownDirectory(), postPath);
 
-  const directories = await filterAsync(
-    currentPathContentNames,
-    async (contentName) => {
-      const contentPath = path.join(currentPath, contentName);
-      const stat = await lstat(contentPath);
-      return stat.isDirectory();
-    }
-  );
-
-  const paths = (
-    await Promise.all(
-      directories.map(async (directoryName) => {
-        return await getPostPaths([...pathArr, directoryName]);
-      })
-    )
-  ).flat();
-
-  if (currentPathContentNames.includes('index.md')) {
-    paths.push(pathArr);
+const getMarkdownDirectory = () => {
+  const blogSrcDir = process.env.BLOG_SRC_DIR;
+  if (blogSrcDir === undefined) {
+    throw new Error('BLOG_SRC_DIR 환경 변수 없음');
   }
-  return paths;
-}
-
-async function filterAsync(
-  arr: string[],
-  callback: (val: string) => Promise<boolean>
-): Promise<string[]> {
-  const temp = arr.map(async (item) => ((await callback(item)) ? item : false));
-  const resolved = await Promise.all(temp);
-  return resolved.filter(isString);
-}
-
-function isString(x: string | false): x is string {
-  return typeof x === 'string';
-}
+  return path.join(currentDirectory, blogSrcDir);
+};

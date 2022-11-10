@@ -5,7 +5,7 @@
   "main": "app.ts",
   "private": true,
   "scripts": {
-    "start": "nodemon app.ts --watch ../blog_src -e md --exec  nodemon app.ts",
+    "start": "ts-node app.ts",
     "test": "echo \"Error: no test specified\" && exit 1",
     "prepare": "husky install"
   },

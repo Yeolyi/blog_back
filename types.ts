@@ -8,4 +8,5 @@ export interface PostData {
   pathArr: string[];
   content: string;
   metaData: MarkdownMetaData;
+  path: string;
 }

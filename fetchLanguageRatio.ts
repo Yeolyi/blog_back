@@ -5,6 +5,7 @@ import { isAllowedFilePath } from './lib/isAllowedFilePath';
 import { notEmpty } from './lib/util';
 
 export interface Language {
+  // 프론트 호환 위함
   name: string;
   language: string;
   lines: number;
@@ -41,7 +42,6 @@ const fetchLanguageRatio = async (): Promise<Language[]> => {
     .map((x) => ({
       ...x,
       percentage: normalizeByLogScale(x.lines / maxLines),
-      // 프론트 호환 위함
       name: x.language,
     }))
     .filter(minimumProportion)
