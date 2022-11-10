@@ -24,7 +24,7 @@ const parseBlogStat = async (blogSrcDir: string) => {
     };
   });
 
-  return (await Promise.all(promise)).filter(notEmpty);
+  return (await Promise.all(promise)).filter(notEmpty).slice(0, 10);
 };
 
 const parseDiff = async (diff: string) => {
@@ -92,7 +92,7 @@ const calculateColorRatio = (changedFile: ChangedFile[]) => {
       }
       return {
         ...languageAndColor,
-        colorAmount: (addedLineOfFile / addedLinesInCommit) * 100,
+        colorAmount: addedLineOfFile / addedLinesInCommit,
       };
     })
     .filter(notEmpty)
