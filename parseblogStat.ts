@@ -1,91 +1,118 @@
-import simpleGit, { SimpleGitOptions } from 'simple-git';
+import _ from 'lodash';
 import extensionMap from './extensionMap';
 import { getLanguageColor } from './fetchLanguageRatio';
+import { allDiffBetweenCommits } from './git';
+import { notEmpty } from './lib/util';
 
-const parseBlogStat = async () => {
-  const blogSrcDir = process.env.BLOG_SRC_DIR;
-  if (blogSrcDir === undefined) {
-    throw new Error('BLOG_SRC_DIR 환경 변수 없음');
+interface ChangedFile {
+  addedLinesCnt: number;
+  deletedLinesCnt: number;
+  filePath: string;
+}
+
+const parseBlogStat = async (blogSrcDir: string) => {
+  const diffs = await allDiffBetweenCommits(blogSrcDir);
+  const promise = diffs.map(async ({ baseCommit, diff }) => {
+    const result = await parseDiff(diff);
+    if (result === null) {
+      return null;
+    }
+    return {
+      message: baseCommit.message,
+      date: baseCommit.date,
+      ...result,
+    };
+  });
+
+  return (await Promise.all(promise)).filter(notEmpty);
+};
+
+const parseDiff = async (diff: string) => {
+  const changedFiles = mapLines(diff, parseDiffString)
+    .filter(notEmpty)
+    .filter(isAllowedFile);
+  if (changedFiles.length === 0) {
+    return null;
   }
-  const options: Partial<SimpleGitOptions> = {
-    baseDir: blogSrcDir,
+  const addedLinesInCommit = changedFiles.reduce(
+    (prev, cur) => prev + cur.addedLinesCnt,
+    0
+  );
+  const colors = calculateColorRatio(changedFiles);
+  return {
+    added: addedLinesInCommit,
+    colors,
   };
-  const git = simpleGit(options);
+};
 
-  const { all: commits } = await git.log();
+const mapLines = <T>(text: string, f: (line: string) => T) =>
+  text.split('\n').map(f);
 
-  const commitStatsPromise = [...Array(commits.length - 1).keys()].map(
-    async (idx) => {
-      const baseCommit = commits[idx];
-      const previousCommit = commits[idx + 1];
-      const diff = await git.diff([
-        '--numstat',
-        previousCommit.hash,
-        baseCommit.hash,
-      ]);
+const parseDiffString = (text: string): ChangedFile | null => {
+  const regex = /(\d+)\s+(\d+)\s+(.+)/;
+  const match = text.match(regex);
+  if (match === null) {
+    return null;
+  }
+  const addedLinesCnt = +match[1];
+  const deletedLinesCnt = +match[2];
+  const filePath = match[3];
+  if (!Number.isInteger(addedLinesCnt) || !Number.isInteger(deletedLinesCnt)) {
+    return null;
+  }
+  return {
+    addedLinesCnt,
+    deletedLinesCnt,
+    filePath,
+  };
+};
 
-      const lines = diff.split('\n');
-      let added = 0;
+const isAllowedFile = (changedFile: ChangedFile): boolean => {
+  const { addedLinesCnt: addedLineCnt, filePath } = changedFile;
+  return (
+    !filePath.endsWith('package-lock.json') &&
+    !filePath.endsWith('package.json') &&
+    addedLineCnt !== 0
+  );
+};
 
-      const colorMap: {
-        [ext: string]: { color: string; language: string; colorAmount: number };
-      } = {};
-
-      lines.forEach((line) => {
-        const regex = /(\d+)\s+(\d+)\s+(.+)/;
-        const match = line.match(regex);
-        if (match === null) {
-          return;
-        }
-        if (
-          match[3].endsWith('package-lock.json') ||
-          match[3].endsWith('package.json')
-        ) {
-          return;
-        }
-
-        added += +match[1];
-
-        const extTemp = match[3].split('.');
-        const ext = extTemp[extTemp.length - 1];
-
-        const language = extensionMap[ext];
-        if (typeof language !== 'string') {
-          return;
-        }
-
-        const color = getLanguageColor(language);
-        colorMap[ext] = {
-          language,
-          color,
-          colorAmount: colorMap[ext]?.colorAmount ?? 0 + added,
-        };
-      });
-
-      if (added === 0) {
+const calculateColorRatio = (changedFile: ChangedFile[]) => {
+  const addedLinesInCommit = changedFile.reduce(
+    (prev, cur) => prev + cur.addedLinesCnt,
+    0
+  );
+  return _(changedFile)
+    .groupBy((x) => extractFileExtension(x.filePath))
+    .mapValues((x) => x.reduce((a, b) => a + b.addedLinesCnt, 0))
+    .entries()
+    .map(([ext, addedLineOfFile]) => {
+      const languageAndColor = extToLanguageAndColor(ext);
+      if (languageAndColor === null) {
         return null;
       }
-
-      const colorMapMax = Object.values(colorMap).reduce(
-        (a, b) => a + b.colorAmount,
-        0
-      );
-      const temp = Object.values(colorMap)
-        .sort((a, b) => (a.language < b.language ? -1 : 1))
-        .map((x) => ({ ...x, colorAmount: x.colorAmount / colorMapMax }));
-
       return {
-        message: baseCommit.message,
-        added,
-        colors: temp,
-        date: baseCommit.date,
+        ...languageAndColor,
+        colorAmount: addedLineOfFile / addedLinesInCommit,
       };
-    }
-  );
+    })
+    .filter(notEmpty)
+    .sortBy((x) => x.colorAmount)
+    .reverse();
+};
 
-  return (await Promise.all(commitStatsPromise))
-    .filter((x) => x !== null)
-    .slice(0, 10);
+const extractFileExtension = (path: string) => {
+  const splited = path.split('.');
+  const ext = splited[splited.length - 1];
+  return ext;
+};
+
+const extToLanguageAndColor = (ext: string) => {
+  const language = extensionMap[ext];
+  if (typeof language !== 'string') {
+    return null;
+  }
+  const color = getLanguageColor(language);
+  return { language, color };
 };
 
 export default parseBlogStat;

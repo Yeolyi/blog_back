@@ -1,5 +1,6 @@
 import { Octokit } from 'octokit';
 import languageColors from './languageColors';
+import { notEmpty } from './lib/util';
 
 const minimumVisibleLanguagePercentage = 0.01;
 
@@ -21,19 +22,24 @@ const fetchLanguageRatio = async (): Promise<Language[]> => {
   const languages = await fetchLanguageObject();
   const parsed = parseLanguageObject(languages);
   const ratioCalculated = calculateByteRatio(parsed);
-  const colorAdded = ratioCalculated.map((x) => ({
-    ...x,
-    color: getLanguageColor(x.name),
-  }));
+  const colorAdded = ratioCalculated
+    .map((x) => {
+      const color = getLanguageColor(x.name);
+      if (color === null) {
+        return null;
+      } else {
+        return { ...x, color };
+      }
+    })
+    .filter(notEmpty);
   return colorAdded;
 };
 
 export const getLanguageColor = (name: string) => {
   if (isValidLanguageName(name)) {
-    return languageColors[name].color ?? '#333';
+    return languageColors[name].color;
   } else {
-    console.error('유효한 언어 이름 아님: ', name);
-    return '#333';
+    return null;
   }
 };
 

@@ -25,7 +25,11 @@ app.get('/languageRatio', async (req, res) => {
 let parseBlogStatCache: Awaited<ReturnType<typeof parseBlogStat>> | null = null;
 app.get('/blogSrcStat', async (req, res) => {
   if (parseBlogStatCache === null) {
-    parseBlogStatCache = await parseBlogStat();
+    const blogSrcDir = process.env.BLOG_SRC_DIR;
+    if (blogSrcDir === undefined) {
+      throw new Error('BLOG_SRC_DIR 환경변수 없음');
+    }
+    parseBlogStatCache = await parseBlogStat(blogSrcDir);
     res.send(parseBlogStatCache);
   } else {
     res.send(parseBlogStatCache);
