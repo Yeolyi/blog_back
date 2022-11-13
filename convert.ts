@@ -1,24 +1,15 @@
-import {
-  readFile,
-  mkdir,
-  writeFile,
-  readdir,
-  lstat,
-  rm,
-  cp,
-} from 'fs/promises';
-import * as path from 'path';
+import { readFile, rm, cp } from 'fs/promises';
 import matter from 'gray-matter';
 import { PostData, MarkdownMetaData } from './types';
 import { replaceCodeDirectives } from './codeReplacer';
-import { existsSync } from 'fs';
-import { filterAsync, mapAsync } from './lib/util';
-
-const currentDirectory = process.cwd();
+import { iteratePathTree, buildPathTree } from './lib/pathTree';
+import { join, relative } from 'path';
+import { fileExists, getSrcPath, makeDirAndWriteFile } from './lib/util';
 
 export async function convertAll() {
   await removeConvertedFolderIfExists();
   const postPaths = await getPostPaths();
+
   for (const postPath of postPaths) {
     const postData = await makePostData(postPath);
     storePostDataToFile(postData);
@@ -26,72 +17,46 @@ export async function convertAll() {
 }
 
 const removeConvertedFolderIfExists = async () => {
-  if (existsSync('converted')) {
+  if (await fileExists('converted')) {
     await rm('converted', { recursive: true });
   }
 };
 
-async function getPostPaths(startPath = '/'): Promise<string[]> {
-  const directories = await listAllDirectoryNamesInPath(startPath);
-  if (!startPath.includes('node_modules') && directories.includes('build')) {
-    console.log(startPath);
+async function getPostPaths(): Promise<string[]> {
+  const srcPath = join(process.cwd(), '../blog_src');
+  const treeRoot = await buildPathTree(srcPath);
+  const paths: string[] = [];
 
-    const buildFolderPath = path.join(startPath, 'build');
-    const from = addMarkdownDirectoryPrefix(buildFolderPath);
-    const to = path.join(currentDirectory, 'converted', buildFolderPath);
-    cp(from, to, { recursive: true });
-  }
-  const paths = (
-    await mapAsync(directories, async (directoryName) => {
-      const directoryPath = path.join(startPath, directoryName);
-      return await getPostPaths(directoryPath);
-    })
-  ).flat();
-
-  if (await isIndexFileExist(startPath)) {
-    paths.push(startPath);
-  }
+  await iteratePathTree(treeRoot, async ({ path }) => {
+    if (shouldCopyPath(path)) {
+      const destPath = convertSrcPathToConvertedPath(path);
+      cp(path, destPath, { recursive: true });
+    }
+    if (path.endsWith('index.md')) {
+      paths.push(path);
+    }
+  });
 
   return paths;
 }
 
-const listAllDirectoryNamesInPath = async (
-  postPath: string
-): Promise<string[]> => {
-  const targetPath = addMarkdownDirectoryPrefix(postPath);
-  const pathContent = await readdir(targetPath);
-  return await filterAsync(pathContent, async (contentName) => {
-    const contentPath = path.join(targetPath, contentName);
-    const stat = await lstat(contentPath);
-    return stat.isDirectory();
-  });
-};
-
-const isIndexFileExist = async (postPath: string) => {
-  const targetPath = addMarkdownDirectoryPrefix(postPath);
-  const pathContent = await readdir(targetPath);
-  return pathContent.includes('index.md');
+const shouldCopyPath = (path: string) => {
+  return path.endsWith('build') || path.endsWith('build/');
 };
 
 const storePostDataToFile = async (postData: PostData) => {
   const json = JSON.stringify(postData);
-
-  const dir = path.join(currentDirectory, 'converted', postData.path);
-  await mkdir(dir, { recursive: true });
-
-  const jsonFilePath = path.join(dir, 'index.json');
-  writeFile(jsonFilePath, json);
+  const markdownDir = convertSrcPathToConvertedPath(postData.path);
+  makeDirAndWriteFile(markdownDir, json);
 };
 
 async function makePostData(postPath: string): Promise<PostData> {
-  const targetPath = addMarkdownDirectoryPrefix(postPath);
-  const indexFilePath = path.join(targetPath, 'index.md');
-  const fileContents = await readFile(indexFilePath, { encoding: 'utf8' });
+  const fileContents = await readFile(postPath, { encoding: 'utf8' });
 
   const matterResult = matter(fileContents);
   const matterData = matterResult.data as MarkdownMetaData;
 
-  const content = await replaceCodeDirectives(matterResult.content, targetPath);
+  const content = await replaceCodeDirectives(matterResult.content, postPath);
 
   return {
     pathArr: [],
@@ -101,13 +66,8 @@ async function makePostData(postPath: string): Promise<PostData> {
   };
 }
 
-const addMarkdownDirectoryPrefix = (postPath: string) =>
-  path.join(getMarkdownDirectory(), postPath);
-
-const getMarkdownDirectory = () => {
-  const blogSrcDir = process.env.BLOG_SRC_DIR;
-  if (blogSrcDir === undefined) {
-    throw new Error('BLOG_SRC_DIR 환경 변수 없음');
-  }
-  return path.join(currentDirectory, blogSrcDir);
+const convertSrcPathToConvertedPath = (path: string) => {
+  const srcPath = getSrcPath();
+  const relativePath = relative(srcPath, path);
+  return join(process.cwd(), 'converted', relativePath);
 };

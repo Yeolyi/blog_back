@@ -1,8 +1,11 @@
 import _ from 'lodash';
-import { extractFileExtension, extToLanguageAndColor } from './extensionMap';
+import {
+  extractFileExtension,
+  extToLanguageAndColor,
+} from './data/extensionMap';
 import { getAllCommits, ChangedFile, Commit } from './git';
 import { isAllowedFilePath } from './lib/isAllowedFilePath';
-import { notEmpty } from './lib/util';
+import { getSrcPath, notEmpty } from './lib/util';
 
 interface Addon {
   added: number;
@@ -15,7 +18,8 @@ interface Color {
   colorAmount: number;
 }
 
-const parseBlogStat = async (blogSrcDir: string) => {
+const parseBlogStat = async () => {
+  const blogSrcDir = getSrcPath();
   const commits = await getAllCommits(blogSrcDir);
   return _(commits)
     .map((commit) => ({
