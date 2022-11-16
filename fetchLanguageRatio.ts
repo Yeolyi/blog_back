@@ -10,11 +10,7 @@ import { iteratePathTree, buildPathTree } from './lib/pathTree';
 import { mapAsync } from './lib/util';
 
 export interface Language {
-  /**  프론트 호환 위함 */
-  name: string;
   language: string;
-  /**  프론트 호환 위함 */
-  lines: number;
   bytes: number;
   percentage: number;
   color: string;
@@ -43,14 +39,11 @@ const fetchLanguageRatio = async (): Promise<Language[]> => {
     const { language, color } = langaugeAndColor;
     if (languageWithoutPercentage[language] === undefined) {
       languageWithoutPercentage[language] = {
-        name: language,
         language,
-        lines: bytes,
         color,
         bytes,
       };
     } else {
-      languageWithoutPercentage[language].lines += bytes;
       languageWithoutPercentage[language].bytes += bytes;
     }
   });
@@ -62,10 +55,10 @@ const fetchLanguageRatio = async (): Promise<Language[]> => {
   return _(languageWithoutPercentage)
     .map((x) => ({
       ...x,
-      percentage: normalizeByLogScale(x.lines / biggestByteSize),
+      percentage: normalizeByLogScale(x.bytes / biggestByteSize),
     }))
     .filter(minimumProportion)
-    .sortBy((x) => x.lines)
+    .sortBy((x) => x.bytes)
     .reverse()
     .value();
 };
