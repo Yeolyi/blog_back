@@ -1,6 +1,3 @@
-import { mkdir, stat, writeFile } from 'fs/promises';
-import { join } from 'path';
-
 export const notEmpty = <T>(value: T | null | undefined): value is T => {
   return value !== null && value !== undefined;
 };
@@ -45,27 +42,4 @@ export const replaceAsync = async (
   });
   const data = await Promise.all(promises);
   return str.replace(regex, () => data.shift() ?? '');
-};
-
-export const fileExists = (path: string) =>
-  stat(join(process.cwd(), path)).then(
-    () => true,
-    () => false
-  );
-
-export const makeDirAndWriteFile = async (filePath: string, file: string) => {
-  const dir = join(filePath, '../');
-  await mkdir(dir, { recursive: true });
-
-  const jsonFilePath = join(dir, 'index.json');
-  writeFile(jsonFilePath, file);
-};
-
-export const getSrcPath = () => {
-  const srcRelativePath = process.env.BLOG_SRC_PATH;
-  if (srcRelativePath === undefined) {
-    throw new Error('BLOG_SRC_PATH 환경변수 없음');
-  }
-  const cwd = process.cwd();
-  return join(cwd, srcRelativePath);
 };

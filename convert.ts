@@ -4,7 +4,7 @@ import { PostData, MarkdownMetaData } from './types';
 import { replaceCodeDirectives } from './codeReplacer';
 import { iteratePathTree, buildPathTree } from './lib/pathTree';
 import { join, relative } from 'path';
-import { fileExists, getSrcPath, makeDirAndWriteFile } from './lib/util';
+import { fileExists, getSrcPath, makeDirAndWriteFile } from './lib/file';
 
 export async function convertAll() {
   await removeConvertedFolderIfExists();
@@ -23,7 +23,7 @@ const removeConvertedFolderIfExists = async () => {
 };
 
 async function getPostPaths(): Promise<string[]> {
-  const srcPath = join(process.cwd(), '../blog_src');
+  const srcPath = getSrcPath();
   const treeRoot = await buildPathTree(srcPath);
   const paths: string[] = [];
 
@@ -46,28 +46,31 @@ const shouldCopyPath = (path: string) => {
 
 const storePostDataToFile = async (postData: PostData) => {
   const json = JSON.stringify(postData);
-  const markdownDir = convertSrcPathToConvertedPath(postData.path);
-  makeDirAndWriteFile(markdownDir, json);
+  const absolutePath = join(getSrcPath(), postData.path);
+  const markdownDir = convertSrcPathToConvertedPath(absolutePath);
+  await makeDirAndWriteFile(markdownDir, json);
 };
-
-async function makePostData(postPath: string): Promise<PostData> {
-  const fileContents = await readFile(postPath, { encoding: 'utf8' });
-
-  const matterResult = matter(fileContents);
-  const matterData = matterResult.data as MarkdownMetaData;
-
-  const content = await replaceCodeDirectives(matterResult.content, postPath);
-
-  return {
-    pathArr: [],
-    metaData: matterData,
-    content,
-    path: postPath,
-  };
-}
 
 const convertSrcPathToConvertedPath = (path: string) => {
   const srcPath = getSrcPath();
   const relativePath = relative(srcPath, path);
   return join(process.cwd(), 'converted', relativePath);
 };
+
+async function makePostData(postPath: string): Promise<PostData> {
+  const fileContents = await readFile(postPath, { encoding: 'utf8' });
+  const matterResult = matter(fileContents);
+  const metaData = matterResult.data as MarkdownMetaData;
+
+  const content = await replaceCodeDirectives(matterResult.content, postPath);
+
+  const filePath = relative(getSrcPath(), postPath);
+  const directoryPath = filePath.split('/').slice(0, -1).join('/');
+
+  return {
+    metaData,
+    content,
+    path: directoryPath,
+    pathArr: [],
+  };
+}

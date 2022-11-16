@@ -4,8 +4,9 @@ import {
   extToLanguageAndColor,
 } from './data/extensionMap';
 import { getAllCommits, ChangedFile, Commit } from './git';
+import { getSrcPath } from './lib/file';
 import { isAllowedFilePath } from './lib/isAllowedFilePath';
-import { getSrcPath, notEmpty } from './lib/util';
+import { notEmpty } from './lib/util';
 
 interface Addon {
   added: number;

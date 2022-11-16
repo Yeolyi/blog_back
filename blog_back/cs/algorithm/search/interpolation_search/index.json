@@ -1,0 +1,1 @@
+{"pathArr":[],"metaData":{"title":"보간 탐색"},"content":"\n정수형 나눗셈이 아닌 실수형 나눗셈을 진행한다는 사실이 단점.\n\n탐색키와 탐색 키워드. 탐색 키는 그 값이 고유해야한다. 컴퓨터 공학에서 말하는 키는 그 값이 유일하다는의미가 담겨 있고 NULL과 같은 값이 채워질 수 없다.\n","path":"cs/algorithm/search/interpolation_search/index.md"}
