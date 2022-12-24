@@ -7,12 +7,14 @@ export type PathNode = FileNode | DirectoryNode;
 export type FileNode = {
   type: 'FILE';
   path: string;
+  parent?: DirectoryNode;
 };
 
 export type DirectoryNode = {
   type: 'DIRECTORY';
   path: string;
   children: PathNode[];
+  parent?: DirectoryNode;
 };
 
 export const preorderTraversePathTree = async (
@@ -28,15 +30,20 @@ export const preorderTraversePathTree = async (
 
 export const buildPathTree = async (
   startDirectory: string
-): Promise<PathNode> => {
-  return {
+): Promise<DirectoryNode> => {
+  const ret: DirectoryNode = {
     type: 'DIRECTORY',
     path: startDirectory,
-    children: await makePathNode(startDirectory),
+    children: [],
   };
+  ret.children = await makePathNode(startDirectory, ret);
+  return ret;
 };
 
-const makePathNode = async (path: string): Promise<PathNode[]> => {
+const makePathNode = async (
+  path: string,
+  parent: DirectoryNode
+): Promise<PathNode[]> => {
   const fileAndDirectoryNames = await readdir(path);
   return (
     await mapAsync(fileAndDirectoryNames, async (name) => {
@@ -45,16 +52,18 @@ const makePathNode = async (path: string): Promise<PathNode[]> => {
       }
       const namePath = join(path, name);
       if (await isDirectory(namePath)) {
-        const children = await makePathNode(namePath);
-        return {
-          type: 'DIRECTORY' as const,
+        const ret: DirectoryNode = {
+          type: 'DIRECTORY',
           path: namePath,
-          children,
+          children: [],
         };
+        ret.children = await makePathNode(namePath, ret);
+        return ret;
       } else {
         return {
           type: 'FILE' as const,
           path: namePath,
+          parent,
         };
       }
     })
