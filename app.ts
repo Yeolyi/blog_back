@@ -23,14 +23,18 @@ app.get('/languageRatio', async (req, res) => {
 });
 
 let parseBlogStatCache: Awaited<ReturnType<typeof parseBlogStat>> | null = null;
-app.get('/blogSrcStat', async (req, res) => {
-  if (parseBlogStatCache === null) {
-    parseBlogStatCache = await parseBlogStat();
-    res.send(parseBlogStatCache);
-  } else {
-    res.send(parseBlogStatCache);
+app.get(
+  '/blogSrcStat',
+  async (req: express.Request<{ count?: number }>, res) => {
+    if (parseBlogStatCache === null) {
+      parseBlogStatCache = await parseBlogStat(req.params.count ?? 5);
+      res.send(parseBlogStatCache);
+    } else {
+      res.send(parseBlogStatCache);
+    }
   }
-});
+);
 
 app.use(express.static('converted'));
 app.listen(process.env.PORT);
+console.log(`서버 시작, 포트: ${process.env.PORT}`);

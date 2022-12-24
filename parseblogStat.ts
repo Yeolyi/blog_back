@@ -19,7 +19,7 @@ interface Color {
   colorAmount: number;
 }
 
-const parseBlogStat = async () => {
+const parseBlogStat = async (count: number) => {
   const blogSrcDir = getSrcPath();
   const commits = await getAllCommits(blogSrcDir);
   return _(commits)
@@ -34,7 +34,7 @@ const parseBlogStat = async () => {
     }))
     .filter((commit) => commit.colors.length > 0)
     .map((commit) => _.omit(commit, 'files'))
-    .slice(0, 10);
+    .slice(0, count);
 };
 
 const isAllowedFile = (changedFile: ChangedFile): boolean => {

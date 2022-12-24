@@ -2,6 +2,7 @@ import simpleGit, { SimpleGitOptions } from 'simple-git';
 import { mapAdjacentElement, notEmpty } from './lib/util';
 
 export interface Commit {
+  hash: string;
   message: string;
   date: string;
   files: ChangedFile[];
@@ -31,6 +32,7 @@ export const getAllCommits = async (dir: string): Promise<Commit[]> => {
       const diffLines = splitLines(diff);
       const files = diffLines.map(parseDiffString).filter(notEmpty);
       return {
+        hash: baseCommit.hash,
         message: baseCommit.message,
         date: baseCommit.date,
         files,
