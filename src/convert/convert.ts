@@ -99,7 +99,7 @@ const getPostParent = (
     possibleParentPath = join(possibleParentPath, '..');
     const indexPath = possibleParentPath + '/index.md';
     if (indexPath in postCache) {
-      const path = relative(srcPath, possibleParentPath + '/index.json');
+      const path = relative(srcPath, possibleParentPath);
       parents.push({
         path,
         title: postCache[indexPath],
