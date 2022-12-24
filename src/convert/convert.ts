@@ -19,7 +19,7 @@ export const convertAll = async () => {
   const postPaths = await getMarkdownFilePaths(root);
   postPaths.forEach(async (postPath) => {
     const postData = await makePostData(postPath);
-    storePostData(postData);
+    storePostData(postData, postPath);
   });
 };
 
@@ -62,26 +62,27 @@ const isMarkdownFile = (path: string) => {
   return path.endsWith('index.md');
 };
 
-const makePostData = async (postPath: string): Promise<PostData> => {
-  const fileContents = await readFile(postPath, { encoding: 'utf8' });
+const makePostData = async (mdAbsolutePath: string): Promise<PostData> => {
+  const fileContents = await readFile(mdAbsolutePath, {
+    encoding: 'utf8',
+  });
   const matterResult = matter(fileContents);
   const metaData = matterResult.data as MarkdownMetaData;
 
-  const content = await replaceCodeDirectives(matterResult.content, postPath);
-
-  const filePath = relative(getSrcPath(), postPath);
-  const directoryPath = filePath.split('/').slice(0, -1).join('/');
+  const content = await replaceCodeDirectives(
+    matterResult.content,
+    mdAbsolutePath
+  );
 
   return {
     metaData,
     content,
-    path: directoryPath,
   };
 };
 
-const storePostData = async (postData: PostData) => {
-  const absolutePath = join(getSrcPath(), postData.path);
-  const markdownDir = convertSrcPathToConvertedPath(absolutePath);
+const storePostData = async (postData: PostData, mdAbsolutePath: string) => {
+  const directoryPath = mdAbsolutePath.split('/').slice(0, -1).join('/');
+  const markdownDir = convertSrcPathToConvertedPath(directoryPath);
   await saveIndexJSON(markdownDir, postData);
 };
 

@@ -7,6 +7,4 @@ export interface MarkdownMetaData {
 export interface PostData {
   content: string;
   metaData: MarkdownMetaData;
-  /** index.json 미포함 */
-  path: string;
 }
