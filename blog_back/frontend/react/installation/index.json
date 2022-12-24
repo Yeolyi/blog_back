@@ -1,1 +1,0 @@
-{"pathArr":[],"metaData":{"title":"Installation"},"content":"\n### Start a New React Project\n\n> React is a library that lets you organize UI code by breaking it apart into pieces called components.\n\nReact doesn’t take care of routing or data management.\n\n```\nnpx create-react-app my-app\n```\n\n튜토리얼에서는 npm대신에 npx를 쓰네?\n","path":"frontend/react/installation/index.md"}

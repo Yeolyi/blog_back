@@ -1,9 +1,10 @@
 import express = require('express');
 import cors = require('cors');
 import * as dotenv from 'dotenv';
-import fetchLanguageRatio, { Language } from './fetchLanguageRatio';
-import parseBlogStat from './parseblogStat';
-import { convertAll } from './convert';
+import fetchLanguageRatio from './src/languageRatio/fetchLanguageRatio';
+import parseBlogStat from './src/recentCommits/parseblogStat';
+import { convertAll } from './src/convert/convert';
+import { Language } from './src/languageRatio/type';
 
 dotenv.config();
 
