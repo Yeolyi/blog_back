@@ -5,7 +5,6 @@ export interface MarkdownMetaData {
 }
 
 export interface PostData {
-  pathArr: string[];
   content: string;
   metaData: MarkdownMetaData;
   /** index.json 미포함 */

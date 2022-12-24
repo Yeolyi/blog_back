@@ -2,26 +2,28 @@ import { lstat, readdir } from 'fs/promises';
 import { join } from 'path';
 import { mapAsync, notEmpty } from './util';
 
-type PathNode = FileNode | DirectoryNode;
+export type PathNode = FileNode | DirectoryNode;
 
-type FileNode = {
+export type FileNode = {
   type: 'FILE';
   path: string;
 };
 
-type DirectoryNode = {
+export type DirectoryNode = {
   type: 'DIRECTORY';
   path: string;
   children: PathNode[];
 };
 
-export const iteratePathTree = async (
+export const preorderTraversePathTree = async (
   node: PathNode,
   f: (node: PathNode) => Promise<void>
 ) => {
   await f(node);
   node.type === 'DIRECTORY' &&
-    (await mapAsync(node.children, (node) => iteratePathTree(node, f)));
+    (await mapAsync(node.children, (node) =>
+      preorderTraversePathTree(node, f)
+    ));
 };
 
 export const buildPathTree = async (

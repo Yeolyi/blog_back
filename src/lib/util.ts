@@ -3,12 +3,12 @@ export const notEmpty = <T>(value: T | null | undefined): value is T => {
 };
 
 // https://stackoverflow.com/a/53508547
-export function mapAsync<T, U>(
+export const mapAsync = <T, U>(
   array: T[],
   callbackfn: (value: T, index: number, array: T[]) => Promise<U>
-): Promise<U[]> {
+): Promise<U[]> => {
   return Promise.all(array.map(callbackfn));
-}
+};
 
 export const filterAsync = async <T>(
   array: T[],

@@ -1,20 +1,27 @@
-import { readFile, rm, cp } from 'fs/promises';
+import { readFile, rm, cp, mkdir, writeFile } from 'fs/promises';
 import matter from 'gray-matter';
 import { PostData, MarkdownMetaData } from './types';
-import { replaceCodeDirectives } from '../lib/codeReplacer';
-import { iteratePathTree, buildPathTree } from '../lib/pathTree';
+import { replaceCodeDirectives } from './codeReplacer';
+import {
+  preorderTraversePathTree,
+  buildPathTree,
+  PathNode,
+} from '../lib/pathTree';
 import { join, relative } from 'path';
-import { fileExists, getSrcPath, makeDirAndMakeIndexJSON } from '../lib/file';
+import { fileExists, getSrcPath } from '../lib/file';
 
-export async function convertAll() {
+export const convertAll = async () => {
   await prepareConvert();
-  const postPaths = await getPostPaths();
+  const root = await buildPathTree(getSrcPath());
 
-  for (const postPath of postPaths) {
+  await handleStaticFiles(root);
+
+  const postPaths = await getMarkdownFilePaths(root);
+  postPaths.forEach(async (postPath) => {
     const postData = await makePostData(postPath);
-    storePostDataToFile(postData);
-  }
-}
+    storePostData(postData);
+  });
+};
 
 const prepareConvert = async () => {
   if (await fileExists('converted')) {
@@ -22,42 +29,40 @@ const prepareConvert = async () => {
   }
 };
 
-async function getPostPaths(): Promise<string[]> {
-  const srcPath = getSrcPath();
-  const treeRoot = await buildPathTree(srcPath);
-  const paths: string[] = [];
-
-  await iteratePathTree(treeRoot, async ({ path }) => {
+const handleStaticFiles = async (root: PathNode) => {
+  await preorderTraversePathTree(root, async ({ path }) => {
     if (shouldCopyPath(path)) {
       const destPath = convertSrcPathToConvertedPath(path);
       cp(path, destPath, { recursive: true });
     }
-    if (path.endsWith('index.md')) {
-      paths.push(path);
-    }
   });
-
-  return paths;
-}
+};
 
 const shouldCopyPath = (path: string) => {
-  return path.endsWith('build') || path.endsWith('build/');
+  return path.endsWith('build');
 };
 
-const storePostDataToFile = async (postData: PostData) => {
-  const json = JSON.stringify(postData);
-  const absolutePath = join(getSrcPath(), postData.path);
-  const markdownDir = convertSrcPathToConvertedPath(absolutePath);
-  await makeDirAndMakeIndexJSON(markdownDir, json);
-};
-
-const convertSrcPathToConvertedPath = (path: string) => {
+const convertSrcPathToConvertedPath = (absolutePath: string) => {
   const srcPath = getSrcPath();
-  const relativePath = relative(srcPath, path);
+  const relativePath = relative(srcPath, absolutePath);
   return join(process.cwd(), 'converted', relativePath);
 };
 
-async function makePostData(postPath: string): Promise<PostData> {
+const getMarkdownFilePaths = async (root: PathNode): Promise<string[]> => {
+  const paths: string[] = [];
+  await preorderTraversePathTree(root, async ({ path }) => {
+    if (isMarkdownFile(path)) {
+      paths.push(path);
+    }
+  });
+  return paths;
+};
+
+const isMarkdownFile = (path: string) => {
+  return path.endsWith('index.md');
+};
+
+const makePostData = async (postPath: string): Promise<PostData> => {
   const fileContents = await readFile(postPath, { encoding: 'utf8' });
   const matterResult = matter(fileContents);
   const metaData = matterResult.data as MarkdownMetaData;
@@ -71,6 +76,17 @@ async function makePostData(postPath: string): Promise<PostData> {
     metaData,
     content,
     path: directoryPath,
-    pathArr: [],
   };
-}
+};
+
+const storePostData = async (postData: PostData) => {
+  const absolutePath = join(getSrcPath(), postData.path);
+  const markdownDir = convertSrcPathToConvertedPath(absolutePath);
+  await saveIndexJSON(markdownDir, postData);
+};
+
+export const saveIndexJSON = async (absolutePath: string, object: object) => {
+  await mkdir(absolutePath, { recursive: true });
+  const jsonFilePath = join(absolutePath, 'index.json');
+  await writeFile(jsonFilePath, JSON.stringify(object));
+};

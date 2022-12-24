@@ -6,7 +6,7 @@ import {
   extToLanguageAndColor,
 } from '../data/extensionMap';
 import { getFileSize, getSrcPath } from '../lib/file';
-import { iteratePathTree, buildPathTree } from '../lib/pathTree';
+import { preorderTraversePathTree, buildPathTree } from '../lib/pathTree';
 import { mapAsync } from '../lib/util';
 import { CodeMetadata, Language } from './type';
 
@@ -56,7 +56,7 @@ const getMarkdownFilePaths = async () => {
   const fileTree = await buildPathTree(getSrcPath());
 
   const markdownFilePaths: string[] = [];
-  await iteratePathTree(fileTree, async (node) => {
+  await preorderTraversePathTree(fileTree, async (node) => {
     if (isMarkdownFile(node.path)) {
       markdownFilePaths.push(node.path);
     }

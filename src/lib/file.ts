@@ -1,4 +1,4 @@
-import { mkdir, stat, writeFile } from 'fs/promises';
+import { stat } from 'fs/promises';
 import { join } from 'path';
 
 export const fileExists = (path: string) =>
@@ -6,12 +6,6 @@ export const fileExists = (path: string) =>
     () => true,
     () => false
   );
-
-export const makeDirAndMakeIndexJSON = async (dir: string, file: string) => {
-  await mkdir(dir, { recursive: true });
-  const jsonFilePath = join(dir, 'index.json');
-  writeFile(jsonFilePath, file);
-};
 
 export const getSrcPath = () => {
   const srcRelativePath = process.env.BLOG_SRC_PATH;
