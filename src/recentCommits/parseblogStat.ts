@@ -1,8 +1,12 @@
 import _ from 'lodash';
-import { extractFileExtension } from '../data/extensionMap';
+import {
+  extractFileExtension,
+  extToLanguageAndColor,
+} from '../data/extensionMap';
 import { getAllCommits } from './git';
 import { getSrcPath } from '../lib/file';
 import { ChangedFile, CommitDiff, CommitWithChangedFiles } from './type';
+import { notEmpty } from '../lib/util';
 
 const parseBlogStat = async (count: number): Promise<CommitDiff[]> => {
   const blogSrcDir = getSrcPath();
@@ -39,14 +43,19 @@ const isAllowedCommit = (commit: CommitWithChangedFiles) =>
   commit.files.length > 0;
 
 const calculateAddons = (commit: CommitWithChangedFiles): CommitDiff => {
+  const extensions = removeDuplicate(
+    commit.files.map((x) => extractFileExtension(x.filePath))
+  );
+  const languageNames = extensions
+    .map(extToLanguageAndColor)
+    .filter(notEmpty)
+    .map((x) => x.language);
   return {
     hash: commit.hash,
     message: commit.message,
     date: commit.date,
     added: sumLineAdded(commit.files),
-    colors: removeDuplicate(
-      commit.files.map((x) => extractFileExtension(x.filePath))
-    ).map((x) => ({ language: x })),
+    colors: languageNames.map((x) => ({ language: x })),
   };
 };
 
