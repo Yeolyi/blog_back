@@ -54,15 +54,28 @@ const isMarkdownFile = (path: string) => {
   return path.endsWith('index.md');
 };
 
+// directory에 있는 index.md를 어떻게든 우선 찾아야한다.
+// DFS가 아니라 BFS로
 const handlePost = async (root: PathNode) => {
   const cache: PostCache = {};
-  await preorderTraversePathTree(root, async (node) => {
-    if (node.type === 'FILE' && isMarkdownFile(node.path)) {
-      const postData = await makePostData(node.path, cache);
-      cache[node.path] = postData.metaData.title;
-      storePostData(postData, node.path);
+  const queue: PathNode[] = [root];
+  let idx = 0;
+
+  while (idx < queue.length) {
+    const cur = queue[idx];
+    if (cur.type === 'FILE') {
+      if (isMarkdownFile(cur.path)) {
+        const postData = await makePostData(cur.path, cache);
+        cache[cur.path] = postData.metaData.title;
+        storePostData(postData, cur.path);
+      }
+    } else {
+      for (const node of cur.children) {
+        queue.push(node);
+      }
     }
-  });
+    idx++;
+  }
 };
 
 const makePostData = async (
