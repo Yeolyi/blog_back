@@ -54,14 +54,12 @@ const fetchLanguageRatio = async (): Promise<Language[]> => {
 
 const getMarkdownFilePaths = async () => {
   const fileTree = await buildPathTree(getSrcPath());
-
   const markdownFilePaths: string[] = [];
   await preorderTraversePathTree(fileTree, async (node) => {
     if (isMarkdownFile(node.path)) {
       markdownFilePaths.push(node.path);
     }
   });
-
   return markdownFilePaths;
 };
 

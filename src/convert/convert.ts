@@ -9,6 +9,7 @@ import {
 } from '../lib/pathTree';
 import { join, relative } from 'path';
 import { fileExists, getSrcPath } from '../lib/file';
+import simpleGit from 'simple-git';
 
 // 메모리 사용을 줄이기 위해 만들어진 PostData는 파일로 저장 후 사용하지 않음
 // 이때 이전에 만든 PostData의 정보가 필요한 경우가 있어 딱 필요한 정보만 간단히 저장
@@ -71,7 +72,8 @@ const makePostData = async (
   const fileContents = await readFile(mdAbsolutePath, {
     encoding: 'utf8',
   });
-  const { data: metaData, content } = matter(fileContents);
+  const { data: metaDataFromMDFile, content } = matter(fileContents);
+  const lastModified = await getLastModifiedDateStr(mdAbsolutePath);
 
   const codeReplacedContent = await replaceCodeDirectives(
     content,
@@ -81,10 +83,20 @@ const makePostData = async (
   const parents = getPostParent(mdAbsolutePath, postCache);
 
   return {
-    metaData: metaData as MarkdownMetaData,
+    metaData: { ...metaDataFromMDFile, lastModified } as MarkdownMetaData,
     content: codeReplacedContent,
     parents,
   };
+};
+
+const getLastModifiedDateStr = async (mdAbsolutePath: string) => {
+  const git = simpleGit(getSrcPath());
+  const mdRelativePath = relative(getSrcPath(), mdAbsolutePath);
+  const log = await git.log({
+    maxCount: 1,
+    file: mdRelativePath,
+  });
+  return log.latest?.date;
 };
 
 const getPostParent = (

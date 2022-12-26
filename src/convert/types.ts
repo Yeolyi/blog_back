@@ -1,7 +1,7 @@
 export interface MarkdownMetaData {
   title: string;
   subtitle?: string;
-  date?: Date;
+  lastModified?: string;
 }
 
 export interface PostData {
