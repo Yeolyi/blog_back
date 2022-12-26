@@ -2,6 +2,7 @@ export interface MarkdownMetaData {
   title: string;
   subtitle?: string;
   lastModified?: string;
+  created?: string;
 }
 
 export interface PostData {

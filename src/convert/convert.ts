@@ -86,7 +86,7 @@ const makePostData = async (
     encoding: 'utf8',
   });
   const { data: metaDataFromMDFile, content } = matter(fileContents);
-  const lastModified = await getLastModifiedDateStr(mdAbsolutePath);
+  const { lastModified, created } = await getHistory(mdAbsolutePath);
 
   const codeReplacedContent = await replaceCodeDirectives(
     content,
@@ -96,20 +96,27 @@ const makePostData = async (
   const parents = getPostParent(mdAbsolutePath, postCache);
 
   return {
-    metaData: { ...metaDataFromMDFile, lastModified } as MarkdownMetaData,
+    metaData: {
+      ...metaDataFromMDFile,
+      lastModified,
+      created,
+    } as MarkdownMetaData,
     content: codeReplacedContent,
     parents,
   };
 };
 
-const getLastModifiedDateStr = async (mdAbsolutePath: string) => {
+const getHistory = async (mdAbsolutePath: string) => {
   const git = simpleGit(getSrcPath());
   const mdRelativePath = relative(getSrcPath(), mdAbsolutePath);
   const log = await git.log({
-    maxCount: 1,
     file: mdRelativePath,
+    '--follow': null,
   });
-  return log.latest?.date;
+  return {
+    lastModified: log.latest?.date,
+    created: log.all[log.all.length - 1].date,
+  };
 };
 
 const getPostParent = (
