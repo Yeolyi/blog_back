@@ -1,6 +1,6 @@
 import { readFile, rm, cp, mkdir, writeFile } from 'fs/promises';
 import matter from 'gray-matter';
-import { PostData, MarkdownMetaData, ParentPost } from './types';
+import { PostData, PostMetadata, ParentPost, PostHeader } from './types';
 import { replaceCodeDirectives } from './codeReplacer';
 import {
   preorderTraversePathTree,
@@ -12,8 +12,8 @@ import { fileExists, getSrcPath } from '../lib/file';
 import simpleGit from 'simple-git';
 
 // 메모리 사용을 줄이기 위해 만들어진 PostData는 파일로 저장 후 사용하지 않음
-// 이때 이전에 만든 PostData의 정보가 필요한 경우가 있어 딱 필요한 정보만 간단히 저장
-// 지금은 title만 저장하는 상태
+// 다만 PostData를 생성할 떄 이전에 만든 PostData의 정보가 필요한 경우가 있어 딱 필요한 정보만 간단히 저장
+// 일단 지금은 title만 저장
 type PostCache = {
   [mdAbsolutePath: string]: string;
 };
@@ -54,15 +54,14 @@ const isMarkdownFile = (path: string) => {
   return path.endsWith('index.md');
 };
 
-// directory에 있는 index.md를 어떻게든 우선 찾아야한다.
-// DFS가 아니라 BFS로
+// directory에 있는 index.md를 우선 찾아야한다 -> DFS가 아니라 BFS로
 const handlePost = async (root: PathNode) => {
   const cache: PostCache = {};
   const queue: PathNode[] = [root];
   let idx = 0;
 
   while (idx < queue.length) {
-    const cur = queue[idx];
+    const cur = queue[idx++];
     if (cur.type === 'FILE') {
       if (isMarkdownFile(cur.path)) {
         const postData = await makePostData(cur.path, cache);
@@ -74,7 +73,6 @@ const handlePost = async (root: PathNode) => {
         queue.push(node);
       }
     }
-    idx++;
   }
 };
 
@@ -94,13 +92,15 @@ const makePostData = async (
   );
 
   const parents = getPostParent(mdAbsolutePath, postCache);
+  const headers = getPostHeader(content);
 
   return {
     metaData: {
       ...metaDataFromMDFile,
       lastModified,
       created,
-    } as MarkdownMetaData,
+      headers,
+    } as PostMetadata,
     content: codeReplacedContent,
     parents,
   };
@@ -111,6 +111,7 @@ const getHistory = async (mdAbsolutePath: string) => {
   const mdRelativePath = relative(getSrcPath(), mdAbsolutePath);
   const log = await git.log({
     file: mdRelativePath,
+    // 꼭 넣어야하는지는 공부해보기
     '--follow': null,
   });
   return {
@@ -142,6 +143,16 @@ const getPostParent = (
   parents.reverse();
 
   return parents;
+};
+
+const getPostHeader = (mdContent: string) => {
+  const headerRegex = /^##(#?) (.+)$/dgm;
+  const postHeaders: { [title: string]: PostHeader } = {};
+  let acc = 0;
+  for (const [, header, title] of mdContent.matchAll(headerRegex)) {
+    postHeaders[title] = { level: header === '#' ? 3 : 2, id: acc++ };
+  }
+  return postHeaders;
 };
 
 const storePostData = async (postData: PostData, mdAbsolutePath: string) => {
