@@ -38,15 +38,20 @@ app.get(
 );
 
 let lastYearCommitCountCache: number;
+let lastYearCommitLastFetch = Date.now();
 app.get('/lastYearCommitCount', async (req, res) => {
   if (process.env.GITHUB_ACCESS_TOKEN === undefined) {
     throw new Error('GITHUB_ACCESS_TOKEN 없음');
   }
-  if (lastYearCommitCountCache === undefined) {
+  if (
+    lastYearCommitCountCache === undefined ||
+    Date.now() - lastYearCommitLastFetch > 3600
+  ) {
     lastYearCommitCountCache = await getLastYearCommitCount(
       'yeolyi',
       process.env.GITHUB_ACCESS_TOKEN
     );
+    lastYearCommitLastFetch = Date.now();
   }
   res.send({ lastYearCommitCountCache });
 });
