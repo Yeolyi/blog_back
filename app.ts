@@ -5,6 +5,7 @@ import fetchLanguageRatio from './src/languageRatio/fetchLanguageRatio';
 import parseBlogStat from './src/recentCommits/parseblogStat';
 import { convertAll } from './src/convert/convert';
 import { Language } from './src/languageRatio/type';
+import getLastYearCommitCount from './lastYearCommits';
 
 dotenv.config();
 
@@ -35,6 +36,20 @@ app.get(
     }
   }
 );
+
+let lastYearCommitCountCache: number;
+app.get('/lastYearCommitCount', async (req, res) => {
+  if (process.env.GITHUB_ACCESS_TOKEN === undefined) {
+    throw new Error('GITHUB_ACCESS_TOKEN 없음');
+  }
+  if (lastYearCommitCountCache === undefined) {
+    lastYearCommitCountCache = await getLastYearCommitCount(
+      'yeolyi',
+      process.env.GITHUB_ACCESS_TOKEN
+    );
+  }
+  res.send({ lastYearCommitCountCache });
+});
 
 app.use(express.static('converted'));
 app.listen(process.env.PORT);
