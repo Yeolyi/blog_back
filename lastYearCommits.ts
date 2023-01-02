@@ -1,13 +1,19 @@
-const query = (username: string) =>
-  `{
+const query = (username: string) => {
+  const now = new Date();
+
+  const oneYearAgo = new Date();
+  oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
+
+  return `{
     user(login: "${username}") {
-        contributionsCollection(from: "2022-01-01T00:00:00.000Z", to: "2023-01-01T00:00:00.000Z") {
+        contributionsCollection(from: "${oneYearAgo.toISOString()}", to: "${now.toISOString()}") {
         totalCommitContributions
         restrictedContributionsCount
       }
     }
   }
 `.trim();
+};
 
 const getLastYearCommitCount = async (username: string, token: string) => {
   const res = await fetch(`https://api.github.com/graphql`, {
